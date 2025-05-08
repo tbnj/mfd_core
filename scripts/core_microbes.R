@@ -1,14 +1,14 @@
 ### Setup env
 library(tidyverse)
 
-source('../MFD_colors.R')
+source('scripts/MFD_colors.R')
 
 setwd("/mfd_core")
 
 
 ### Import data
 ## Load data and create "complexes" correponding to full ontology strings
-metadata <- data.table::fread('../section2/output/2024-05-10_samples-grid-10km.csv', na.strings = "") %>%
+metadata <- data.table::fread('data/2025-04-23_MFD_samples_grid_10km.tsv', na.strings = "") %>%
   mutate(mfd_areatype = str_c(mfd_sampletype, mfd_areatype, sep = ", "),
          complex1 = str_c(mfd_areatype, mfd_hab1, sep = ", "),
          complex2 = str_c(complex1, mfd_hab2, sep = ", "),
@@ -23,12 +23,12 @@ metadata <- data.table::fread('../section2/output/2024-05-10_samples-grid-10km.c
          label2 = str_c(complex2, ", n = ", complex2_size, sep = ""),
          label3 = str_c(complex3, ", n = ", complex3_size, sep = "")) %>%
   ungroup() %>%
-  filter(!complex1 %in% c("Water, Subterranean, Freshwater",
-                         "Water, Urban, Sandfilter",
-                         "Soil, Urban, Other",
-                         "Sediment, Urban, Other",
-                         "Soil, Urban, Roadside",
-                         "Soil, Subterranean, Urban")) %>%
+  filter(!complex1 %in% c("Other, Urban, Landfill",
+                          "Soil, Subterranean, Urban",
+                          "Water, Subterranean, Freshwater",
+                          "Other, Urban, Drinking water",
+                          "Water, Urban, Drinking water",
+                          "Sediment, Subterranean, Saltwater")) %>%
   mutate(across(mfd_sampletype, ~factor(., levels = names(sampletype.palette))),
          across(mfd_areatype, ~factor(., levels = names(areatype.palette))),
          across(complex1, ~factor(., levels = names(mfdo1.palette))),
@@ -41,9 +41,12 @@ samples.subset <- metadata %>%
   pull(fieldsample_barcode)
 
 ## Load genus-aggregated observational table of 16S derived from the metagenomes 
-data <- data.table::fread('../format_data/output/2024-03-07_arcbac-rarefaction-rel.csv') %>%
+data <- data.table::fread('data/2025-02-13_MFD_arcbac_genus_rarefaction_rel.csv') %>%
   select(any_of(samples.subset), Kingdom:Genus) %>%
   filter(rowSums(across(where(is.numeric)))!=0)
+
+tax <- data %>%
+  select(Kingdom:Genus)
 
 ## Create summaries across the ontology levels
 summary.type <- metadata %>%
@@ -75,7 +78,6 @@ summary.mfdo3 <- metadata %>%
   summarise(group_size = n(), .groups = "drop") %>%
   mutate(`Core` = ceiling(group_size*0.5)) %>%
   filter(!is.na(complex3))
-
 
 ### Core community members 
 ## Write function to identify core community members
@@ -145,7 +147,9 @@ df.core.type <- bind_rows(core.community.type) %>%
   mutate(prevalence = n_observations/group_size) %>%
   group_by(Genus) %>%
   mutate(fidelity = n()) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(tax) %>%
+  select(Kingdom:Family, Genus, everything())
 
 df.core.area <- bind_rows(core.community.area) %>%
   rename(mfd_areatype = group) %>%
@@ -153,15 +157,19 @@ df.core.area <- bind_rows(core.community.area) %>%
   mutate(prevalence = n_observations/group_size) %>%
   group_by(Genus) %>%
   mutate(fidelity = n()) %>%
-  ungroup()
-
+  ungroup() %>%
+  left_join(tax) %>%
+  select(Kingdom:Family, Genus, everything())
+  
 df.core.mfdo1 <- bind_rows(core.community.mfdo1) %>%
   rename(complex1 = group) %>%
   left_join(summary.mfdo1) %>%
   mutate(prevalence = n_observations/group_size) %>%
   group_by(Genus) %>%
   mutate(fidelity = n()) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(tax) %>%
+  select(Kingdom:Family, Genus, everything())
 
 df.core.mfdo2 <- bind_rows(core.community.mfdo2) %>%
   rename(complex2 = group) %>%
@@ -169,7 +177,9 @@ df.core.mfdo2 <- bind_rows(core.community.mfdo2) %>%
   mutate(prevalence = n_observations/group_size) %>%
   group_by(Genus) %>%
   mutate(fidelity = n()) %>%
-  ungroup()
+  ungroup() %>%
+  left_join(tax) %>%
+  select(Kingdom:Family, Genus, everything())
 
 df.core.mfdo3 <- bind_rows(core.community.mfdo3) %>%
   rename(complex3 = group) %>%
@@ -177,40 +187,25 @@ df.core.mfdo3 <- bind_rows(core.community.mfdo3) %>%
   mutate(prevalence = n_observations/group_size) %>%
   group_by(Genus) %>%
   mutate(fidelity = n()) %>%
-  ungroup()
-
-## Evaluate the number of core genera acroos ontology levels
-df.core.type %>%
-  pull(Genus) %>% 
-  unique %>%
-  length()
-
-df.core.area %>%
-  pull(Genus) %>% 
-  unique %>%
-  length()
-
-df.core.mfdo1 %>%
-  pull(Genus) %>% 
-  unique %>%
-  length()
-
-df.core.mfdo2 %>%
-  pull(Genus) %>% 
-  unique %>%
-  length()
-
-df.core.mfdo3 %>%
-  pull(Genus) %>% 
-  unique %>%
-  length()
+  ungroup() %>%
+  left_join(tax) %>%
+  select(Kingdom:Family, Genus, everything())
 
 ## Write results to output
-data.table::fwrite(df.core.type, "output/2024-03-07_core-genera-type.csv")
-data.table::fwrite(df.core.area, "output/2024-03-07_core-genera-area.csv")
-data.table::fwrite(df.core.mfdo1, "output/2024-03-07_core-genera-mfdo1.csv")
-data.table::fwrite(df.core.mfdo2, "output/2024-03-07_core-genera-mfdo2.csv")
-data.table::fwrite(df.core.mfdo3, "output/2024-03-07_core-genera-mfdo3.csv")
+data.table::fwrite(metadata, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_metadata.tsv"))
+data.table::fwrite(df.core.type, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_genera_type.tsv"))
+data.table::fwrite(df.core.area, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_genera_area.tsv"))
+data.table::fwrite(df.core.mfdo1, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_genera_mfdo1.tsv"))
+data.table::fwrite(df.core.mfdo2, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_genera_mfdo2.tsv"))
+data.table::fwrite(df.core.mfdo3, sep = "\t", row.names = FALSE, col.names = TRUE, quote = FALSE,
+                   paste0("output/", format(Sys.time(), "%Y-%m-%d"), "_MFD_core_genera_mfdo3.tsv"))
+
+rm(list=ls(pattern="^core."))
 
 ## Same image
-save.image(file = 'output/core_microbes.RData')
+save.image(paste0('output/', format(Sys.time(), "%Y-%m-%d"), "_core_microbes.RData"))
