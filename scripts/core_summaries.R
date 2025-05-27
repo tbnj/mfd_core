@@ -169,31 +169,32 @@ tmp.comb <- rbind(top.prevalence, top.abundance) %>%
 ## Ontology summaries
 df.sum.type <- df.core.type %>%
   group_by(complex) %>%
+  rename(sample_type = complex) %>%
   reframe(core_type = n())
 
 df.sum.area <- df.core.area %>%
   group_by(complex) %>%
   reframe(core_area = n()) %>%
-  rename(complex1 = complex) %>%
-  mutate(complex = str_extract(complex1, "^([^,]*,){0}[^,]*"), .before = complex1)
+  rename(area_type = complex) %>%
+  mutate(sample_type = str_extract(area_type, "^([^,]*,){0}[^,]*"), .before = area_type)
 
 df.sum.mfdo1 <- df.core.mfdo1 %>%
   group_by(complex) %>%
   reframe(core_mfdo1 = n()) %>%
-  rename(complex2 = complex) %>%
-  mutate(complex1 = str_extract(complex2, "^([^,]*,){1}[^,]*"), .before = complex2)
+  rename(mfd_hab1 = complex) %>%
+  mutate(area_type = str_extract(mfd_hab1, "^([^,]*,){1}[^,]*"), .before = mfd_hab1)
 
 df.sum.mfdo2 <- df.core.mfdo2 %>%
   group_by(complex) %>%
   reframe(core_mfdo2 = n()) %>%
-  rename(complex3 = complex) %>%
-  mutate(complex2 = str_extract(complex3, "^([^,]*,){2}[^,]*"), .before = complex3)
+  rename(mfd_hab2 = complex) %>%
+  mutate(mfd_hab1 = str_extract(mfd_hab2, "^([^,]*,){2}[^,]*"), .before = mfd_hab2)
 
 df.sum.mfdo3 <- df.core.mfdo3 %>%
   group_by(complex) %>%
   reframe(core_mfdo3 = n()) %>%
-  rename(complex4 = complex) %>%
-  mutate(complex3 = str_extract(complex4, "^([^,]*,){3}[^,]*"), .before = complex4)
+  rename(mfd_hab3 = complex) %>%
+  mutate(mfd_hab2 = str_extract(mfd_hab3, "^([^,]*,){3}[^,]*"), .before = mfd_hab3)
 
 ## Combine
 df.sum.combined <- df.sum.type %>%

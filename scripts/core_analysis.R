@@ -387,7 +387,7 @@ p4
 
 ### Link 16S reference seqeunces and 16S sequences binned in MAGs
 ## Load USEARCH results
-usearch <- data.table::fread("data/shallow_mags_16S_vs_MFD_ssu_database_v1.3_NR987.txt.b6",
+usearch <- data.table::fread("data/shallow_mags_16S_vs_MFD_ssu_database_v1.3_NR987.b6",
                              col.names = c("Query", "Target", "Percent_ID",
                                            "Alignment_lengt", "#mismatch",
                                            "#gap", "start_query", "end_query",
