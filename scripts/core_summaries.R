@@ -10,23 +10,23 @@ load("output/2025-04-23_core_microbes.RData")
 ## Mutate ontology level specific dataframes
 df.core.type <- df.core.type %>%
   rename(complex = mfd_sampletype) %>%
-  mutate(complexity = "mfd_sampletype")
+  mutate(ontology_level = "mfd_sampletype")
 df.core.area <- df.core.area %>%
   rename(complex = mfd_areatype) %>%
-  mutate(complexity = "mfd_areatype")
+  mutate(ontology_level = "mfd_areatype")
 df.core.mfdo1 <- df.core.mfdo1 %>%
   rename(complex = complex1) %>%
-  mutate(complexity = "mfd_hab1") %>%
+  mutate(ontology_level = "mfd_hab1") %>%
   mutate(across(complex, ~str_replace(., "Bogs, mires and fens", "Bogs mires and fens")),
          across(complex, ~str_replace(., "Poales, ", "Poales ")))
 df.core.mfdo2 <- df.core.mfdo2 %>%
   rename(complex = complex2) %>%
-  mutate(complexity = "mfd_hab2") %>%
+  mutate(ontology_level = "mfd_hab2") %>%
   mutate(across(complex, ~str_replace(., "Bogs, mires and fens", "Bogs mires and fens")),
          across(complex, ~str_replace(., "Poales, ", "Poales ")))
 df.core.mfdo3 <- df.core.mfdo3 %>%
   rename(complex = complex3) %>%
-  mutate(complexity = "mfd_hab3") %>%
+  mutate(ontology_level = "mfd_hab3") %>%
   mutate(across(complex, ~str_replace(., "Bogs, mires and fens", "Bogs mires and fens")),
          across(complex, ~str_replace(., "Poales, ", "Poales ")))
 
@@ -56,7 +56,7 @@ levels <- c("mfd_sampletype", "mfd_areatype", "mfd_hab1", "mfd_hab2", "mfd_hab3"
 
 ## Combine results
 df <- rbind(df.core.type, df.core.area, df.core.mfdo1, df.core.mfdo2, df.core.mfdo3) %>%
-  mutate(across(complexity, ~factor(., levels = levels)))
+  mutate(across(ontology_level, ~factor(., levels = levels)))
 
 ## Evaluate proportion of de novo genera
 df.taxonomy <- df %>%
@@ -82,12 +82,12 @@ genera.sum <- data.long %>%
          mfd_hab2 = str_c(mfd_hab1, mfd_hab2, sep = ", "),
          mfd_hab3 = str_c(mfd_hab2, mfd_hab3, sep = ", ")) %>%
 select(-c(fieldsample_barcode, abundance)) %>%
-  pivot_longer(cols = mfd_sampletype:mfd_hab3, names_to = "complexity", values_to = "complex") %>%
+  pivot_longer(cols = mfd_sampletype:mfd_hab3, names_to = "ontology_level", values_to = "complex") %>%
   mutate(across(complex, ~str_replace(., "Bogs, mires and fens", "Bogs mires and fens")),
          across(complex, ~str_replace(., "Poales, ", "Poales ")),
-         across(complexity, ~factor(., levels = levels))) %>%
+         across(ontology_level, ~factor(., levels = levels))) %>%
   filter(!is.na(complex)) %>%
-  group_by(complexity, complex) %>%
+  group_by(ontology_level, complex) %>%
   reframe(genera_total = n_distinct(Genus))
 
 ## Create group summaries
@@ -96,7 +96,7 @@ df.sum <- df %>%
                                       TRUE~0),
          uniq_abundance = case_when(fidelity == 1 ~mean_abundance,
                                     TRUE~0)) %>%
-  group_by(complex, complexity, group_size) %>%
+  group_by(complex, ontology_level, group_size) %>%
   reframe(core_size = n(),
           uniq_core = sum(fidelity == 1),
           core_abundance = round(sum(mean_abundance), 1),
@@ -108,18 +108,18 @@ df.sum <- df %>%
 
 ## Agri MFDO2 crop type
 core.agri.crop <- df.sum %>%
-  filter(complexity %in% c("mfd_hab1", "mfd_hab2"),
+  filter(ontology_level %in% c("mfd_hab1", "mfd_hab2"),
          str_detect(complex, "Agriculture,")) %>%
-  group_by(complexity) %>%
+  group_by(ontology_level) %>%
   reframe(median = median(core_size),
           mean = mean(core_size),
           sd = sd(core_size))
 
 ## MFDO1 soil specific 
 df.sum.soil.mfdo1 <- df.sum %>%
-  filter(complexity == "mfd_hab1",
+  filter(ontology_level == "mfd_hab1",
          str_detect(complex, "Soil")) %>%
-  group_by(complexity) %>%
+  group_by(ontology_level) %>%
   reframe(sum_core = sum(core_size),
           sum_uniq = sum(uniq_core),
           median = round(median(uniq_core), 0), 
@@ -128,7 +128,7 @@ df.sum.soil.mfdo1 <- df.sum %>%
 
 ## Summary of smmaries
 df.sum.sum <- df.sum %>%
-  group_by(complexity) %>%
+  group_by(ontology_level) %>%
   reframe(size_core = sum(core_size),
           min_core = min(core_size),
           max_core = max(core_size),
@@ -143,8 +143,8 @@ df.sum.sum <- df.sum %>%
 
 ## Top genera
 top.genera <- df %>%
-  filter(complexity == "mfd_hab1") %>%
-  group_by(complexity, Genus) %>%
+  filter(ontology_level == "mfd_hab1") %>%
+  group_by(ontology_level, Genus) %>%
   reframe(prevalence = n(), 
           # sum = round(sum(mean_abundance), 1),
           median = round(median(mean_abundance), 1),
